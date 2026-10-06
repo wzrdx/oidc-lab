@@ -1,0 +1,6 @@
+packages:
+    - idp
+    - notes-app
+    - notes-api
+allowBuilds:
+  esbuild: true

@@ -1,0 +1,20 @@
+{
+    "name": "idp",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "dev": "tsx watch src/index.ts",
+        "typecheck": "tsc"
+    },
+    "dependencies": {
+        "express": "^5.2.1",
+        "oidc-provider": "^9.12.2"
+    },
+    "devDependencies": {
+        "@types/express": "^5.0.6",
+        "@types/node": "^26.6.4",
+        "@types/oidc-provider": "^9.12.1",
+        "tsx": "^4.23.15",
+        "typescript": "^7.0.2"
+    }
+}
