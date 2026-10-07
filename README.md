@@ -43,7 +43,7 @@ sequenceDiagram
 
 ## Roadmap
 
-- [ ] **1. Bare IdP:** in-memory provider, one static client, a full flow driven by hand with `curl`
+- [x] **1. Bare IdP:** in-memory provider, one static client, a full flow driven by hand with `curl`
 - [ ] **2. Client auth by hand:** login, callback, logout, server-side sessions, `id_token` verification
 - [ ] **3. Resource API:** JWT access tokens, NestJS guard with JWKS, `aud`/`iss`/scope checks
 - [ ] **4. Refresh tokens:** rotation, reuse detection, single-flight refresh per session

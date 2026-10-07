@@ -72,3 +72,21 @@ The secret used for the HMAC comes from `COOKIE_KEYS`. These keys are unrelated 
 ```bash
 openssl rand -base64 32   # generate a key
 ```
+
+## state, PKCE, and nonce
+
+All three bind a step of the flow back to the request that started it, but each protects something different:
+
+| Value | Checked by | Binds | Stops |
+| --- | --- | --- | --- |
+| `state` | The client, at the callback | The callback to a login started in *this* browser | Login CSRF |
+| PKCE (`code_verifier`) | The IdP, at the token endpoint | The `code` to whoever started the flow | A stolen or intercepted code being exchanged by someone else |
+| `nonce` | The client, inside the `id_token` | The `id_token` to this specific authorize request | Replaying an `id_token` taken from a different login |
+
+### PKCE: what happens, step by step
+
+1. **Before the redirect:** the client generates the verifier, keeps it secret (in `notes-app`, in a server-side login-transaction record together with `state` and `nonce`; the browser only gets a cookie with the record's ID), and puts only the hash, the challenge, in the authorize URL.
+2. **At the IdP:** when it issues the `code`, it stores the challenge alongside it: "this code belongs to whoever knows the input that hashes to this challenge".
+3. **At the token request:** the client sends the code and the verifier. The IdP hashes the verifier and compares the result with the stored challenge.
+   - **Match:** this is the party that started the flow, so the IdP issues tokens.
+   - **No match:** `invalid_grant`.

@@ -33,6 +33,7 @@ The browser only ever holds a session ID cookie for `notes-app`. It never sees a
 - **`notes-app` is a BFF (confidential client).** The code exchange happens server-side with a client secret, and tokens never reach the browser. This is the current recommendation for browser-based apps.
 - **UI and BFF are one Next.js app.** Same origin by construction. Downside: the server/client boundary is a convention, not a wall. Passing a token as a prop to a client component leaks it into the page. All token code lives in a module that starts with `import "server-only"`.
 - **Server-side session store.** The cookie holds only a random session ID; tokens are stored server-side, keyed by it. Reason: server components can't set cookies, so a refresh (which rotates the refresh token) has to be saved somewhere other than a cookie. Start with a `Map` on `globalThis` (survives hot reload), move to Redis in phase 5.
+- **Login transactions are stored server-side too.** Between the redirect to the IdP and the callback, `state`, `nonce`, and the PKCE `code_verifier` live in a server-side record; the browser only holds a short-lived httpOnly cookie with the record's random ID. The verifier never leaves the server. Same storage approach as sessions (`Map` now, Redis in phase 5), with a short expiry.
 - **JWT access tokens.** `node-oidc-provider` issues opaque access tokens by default. Enable the `resourceIndicators` feature and return `accessTokenFormat: 'jwt'` for the `notes-api` resource, so `notes-api` can verify tokens locally with `jose` instead of calling the introspection endpoint on every request.
 - **`notes-api` verifies, never logs in.** It checks the signature via JWKS (`createRemoteJWKSet`), an `alg` allowlist, `iss`, `aud`, `exp`, and scopes. Implemented as a NestJS guard plus a scopes decorator.
 - **`idp` uses plain Express.** `node-oidc-provider` is Koa-based. Mounting it in Express is simple, and the library's own docs and examples apply directly. NestJS is used where it fits naturally (`notes-api`).
@@ -41,9 +42,9 @@ The browser only ever holds a session ID cookie for `notes-app`. It never sees a
 ## Target flow (phases 1-4)
 
 1. User clicks "Sign in": `GET /auth/login` on `notes-app`.
-2. `notes-app` generates `state`, `nonce`, and a PKCE `code_verifier`, stores them in a short-lived httpOnly cookie, and redirects to the IdP's authorization endpoint with `code_challenge = base64url(SHA256(code_verifier))`.
+2. `notes-app` generates `state`, `nonce`, and a PKCE `code_verifier`, stores them server-side in a login-transaction record keyed by a random ID, sets that ID in a short-lived httpOnly cookie, and redirects to the IdP's authorization endpoint with `code_challenge = base64url(SHA256(code_verifier))`.
 3. User logs in and consents at the IdP. The IdP redirects to `/auth/callback?code=...&state=...`.
-4. `notes-app` checks `state`, then POSTs `code` + `code_verifier` + client credentials to the IdP's token endpoint.
+4. `notes-app` loads the login-transaction record via the cookie, deletes it (single use), and checks `state` against it, then POSTs `code` + `code_verifier` + client credentials to the IdP's token endpoint.
 5. `notes-app` verifies the `id_token` with `jose` (signature via JWKS, `iss`, `aud`, `exp`, `nonce`), creates a server-side session, and sets the session ID cookie.
 6. Server-side code calls `notes-api` with `Authorization: Bearer <access_token>`.
 7. `notes-api` verifies the JWT locally and checks scopes.
@@ -51,9 +52,9 @@ The browser only ever holds a session ID cookie for `notes-app`. It never sees a
 
 ## Phases
 
-Current phase: **1 (not started)**
+Current phase: **2 (not started)**
 
-1. [ ] **Bare IdP.** `node-oidc-provider` with the in-memory adapter, one static client, and the built-in dev login screens. Inspect the discovery document and JWKS. Run one flow by hand: build the authorize URL manually, copy the `code` from the address bar, exchange it with `curl`, decode the `id_token`.
+1. [x] **Bare IdP.** `node-oidc-provider` with the in-memory adapter, one static client, and the built-in dev login screens. Inspect the discovery document and JWKS. Run one flow by hand: build the authorize URL manually, copy the `code` from the address bar, exchange it with `curl`, decode the `id_token`.
 2. [ ] **`notes-app` auth by hand.** Route handlers `app/auth/login`, `app/auth/callback`, `app/auth/logout`. Session store. `id_token` verification.
 3. [ ] **`notes-api`.** NestJS guard with JWKS verification, `aud`/`iss`/scope checks. Enable JWT access tokens on the IdP. `notes-app` calls the API.
 4. [ ] **Refresh tokens.** `offline_access` scope, rotation, reuse detection (presenting an already-used refresh token must fail), single-flight refresh per session.

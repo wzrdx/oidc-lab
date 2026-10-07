@@ -38,7 +38,7 @@ The client secret has to come from the environment (`CLAUDE.md` > IdP client reg
 
 ---
 
-## 3. [ ] Register the static `notes-app` client
+## 3. [✅] Register the static `notes-app` client
 
 Add a `clients` array to the provider configuration with exactly one confidential client, matching `CLAUDE.md` > IdP client registration:
 
@@ -57,7 +57,7 @@ Type the configuration object with the `Configuration` type from `oidc-provider`
 
 ---
 
-## 4. [ ] Set the provider's cookie signing keys
+## 4. [✅] Set the provider's cookie signing keys
 
 `oidc-provider` uses cookies to track the user's login session and the in-progress interaction. When `cookies.keys` isn't set, it warns at startup and cannot detect tampered cookies. Set `cookies: { keys: COOKIE_KEYS.split(",") }` in the configuration. With several keys, the first one signs and every key verifies, which is the hook for rotating keys later.
 
@@ -69,7 +69,7 @@ Restart the IdP and confirm the startup warning about missing cookie keys is gon
 
 ---
 
-## 5. [ ] Inspect the discovery document
+## 5. [✅] Inspect the discovery document
 
 Fetch `http://idp.localhost:4000/.well-known/openid-configuration` and work out what each field means for the client:
 
@@ -86,7 +86,7 @@ Fetch `http://idp.localhost:4000/.well-known/openid-configuration` and work out 
 
 ---
 
-## 6. [ ] Inspect the JWKS
+## 6. [✅] Inspect the JWKS
 
 Fetch the `jwks_uri` from task 5. For each key, identify `kty`, `alg`/`crv`, `use`, and `kid`. Confirm the set holds only public material (no `d`, `p`, or `q` members).
 
@@ -98,7 +98,7 @@ Remember that this is `oidc-provider`'s built-in development key. Its private ha
 
 ---
 
-## 7. [ ] Generate PKCE, `state`, and `nonce` values by hand
+## 7. [✅] Generate PKCE, `state`, and `nonce` values by hand
 
 Do the client's step 2 of the target flow (`CLAUDE.md` > Target flow) manually, in a terminal:
 
@@ -112,7 +112,7 @@ Use `node -e` with `node:crypto`, or `openssl`. Keep all four values in shell va
 
 ---
 
-## 8. [ ] Build the authorize URL and log in through the dev screens
+## 8. [✅] Build the authorize URL and log in through the dev screens
 
 Build the authorization URL by hand from `authorization_endpoint` with these parameters: `client_id=notes-app`, `redirect_uri` (URL-encoded, exactly as registered), `response_type=code`, `scope=openid`, `state`, `nonce`, `code_challenge`, `code_challenge_method=S256`.
 
@@ -126,7 +126,7 @@ Optional: open the browser dev tools and look at the cookies the IdP set on `idp
 
 ---
 
-## 9. [ ] Exchange the code for tokens with curl
+## 9. [✅] Exchange the code for tokens with curl
 
 POST to `token_endpoint` with `curl`:
 
@@ -141,7 +141,7 @@ Do this right after task 8, because codes are short-lived. Read the response: `a
 
 ---
 
-## 10. [ ] Decode and verify the `id_token` by hand
+## 10. [✅] Decode and verify the `id_token` by hand
 
 Split the `id_token` on `.` and base64url-decode the header and the payload. Check by hand everything that `notes-app` will check in code in phase 2:
 
@@ -152,15 +152,13 @@ Split the `id_token` on `.` and base64url-decode the header and the payload. Che
 - `nonce` equals the value from task 7.
 - `sub` is the username you entered on the dev login screen.
 
-Optional: run a one-off `jose` `jwtVerify` against the remote JWKS in a scratch script to confirm the signature. Don't put it in `notes-app`; that code is written by hand in phase 2.
-
 **Files affected:** none.
 
 **Depends on:** 6, 9.
 
 ---
 
-## 11. [ ] Probe the security checks with failing requests
+## 11. [✅] Probe the security checks with failing requests
 
 Show that each protection actually rejects bad input. Each probe needs a fresh `code` (repeat tasks 7 and 8), except the replay:
 
@@ -179,7 +177,7 @@ For each probe, write down which attack the check prevents.
 
 ---
 
-## 12. [ ] Mark phase 1 complete
+## 12. [✅] Mark phase 1 complete
 
 Once tasks 1 to 11 pass, update the project status:
 
