@@ -101,7 +101,7 @@ Expired records that are never taken stay in the `Map`. That's acceptable for a 
 
 ---
 
-## 7. [ ] Implement the session store and session cookie helpers
+## 7. [✅] Implement the session store and session cookie helpers
 
 Create `lib/auth/session.ts` (server-only), following the "Server-side session store" design decision:
 
