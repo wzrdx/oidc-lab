@@ -136,7 +136,7 @@ Check: visiting `http://app.localhost:3000/auth/login` lands on the IdP's login 
 
 ---
 
-## 9. [ ] Implement the token exchange
+## 9. [✅] Implement the token exchange
 
 Create `lib/auth/token-exchange.ts` (server-only) with a function that takes a `code` and a `codeVerifier` and calls `token_endpoint` (task 4). This is phase 1's `curl` in code:
 
