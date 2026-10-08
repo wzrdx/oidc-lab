@@ -41,6 +41,8 @@ export function createLoginTransaction(): { txId: string; loginTransaction: Logi
 
     store.set(txId, loginTransaction);
 
+    console.log('createLoginTransaction', txId);
+
     return { txId, loginTransaction };
 }
 

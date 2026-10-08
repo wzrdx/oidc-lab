@@ -5,8 +5,7 @@ export default function Home() {
                 <div className="mx-auto flex flex-col gap-4 text-base font-medium sm:flex-row">
                     <a
                         className="bg-foreground text-background flex h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-full px-5 transition-colors hover:bg-[#383838]"
-                        target="_blank"
-                        rel="noopener noreferrer"
+                        href="/auth/login"
                     >
                         Sign in
                     </a>

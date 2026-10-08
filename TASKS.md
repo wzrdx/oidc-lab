@@ -119,7 +119,7 @@ The cookie holds only the session ID. Tokens stay in the `Map`.
 
 ---
 
-## 8. [ ] Implement `GET /auth/login`
+## 8. [✅] Implement `GET /auth/login`
 
 Create `app/auth/login/route.ts`, steps 1 and 2 of the target flow:
 

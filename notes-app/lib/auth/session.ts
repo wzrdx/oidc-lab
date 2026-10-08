@@ -47,6 +47,8 @@ export function createSession({
     const sessionId = randomToken();
     store.set(sessionId, session);
 
+    console.log('createSession', sessionId);
+
     return sessionId;
 }
 
