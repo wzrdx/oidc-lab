@@ -54,7 +54,7 @@ Create `lib/auth/config.ts` (starts with `import "server-only"`) that reads the 
 
 ---
 
-## 4. [ ] Load the IdP's discovery document
+## 4. [✅] Load the IdP's discovery document
 
 Create `lib/auth/discovery.ts` (server-only) with a function that fetches `${OIDC_ISSUER}/.well-known/openid-configuration` and returns the fields the client uses: `issuer`, `authorization_endpoint`, `token_endpoint`, `jwks_uri`.
 
@@ -69,7 +69,7 @@ Reading the endpoints from discovery and not hard-coding them is what real clien
 
 ---
 
-## 5. [ ] Add helpers for random values and the PKCE challenge
+## 5. [✅] Add helpers for random values and the PKCE challenge
 
 Create `lib/auth/random.ts` (server-only) with two small functions, the code versions of phase 1's task 7:
 
