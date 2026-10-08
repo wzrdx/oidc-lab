@@ -52,5 +52,8 @@ export async function exchangeCodeForTokens(
         token_type: string;
     };
 
+    // Never log the tokens themselves: they are bearer credentials.
+    console.log(`[token-exchange] tokens received: token_type=${token_type}, expires_in=${expires_in}s`);
+
     return { access_token, id_token, expires_in, token_type };
 }

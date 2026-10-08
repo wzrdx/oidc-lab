@@ -151,7 +151,7 @@ Create `lib/auth/token-exchange.ts` (server-only) with a function that takes a `
 
 ---
 
-## 10. [ ] Implement `id_token` verification
+## 10. [✅] Implement `id_token` verification
 
 Create `lib/auth/id-token.ts` (server-only), step 5 of the target flow and phase 1's task 10 in code:
 
