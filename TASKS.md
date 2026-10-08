@@ -84,7 +84,7 @@ Use `node:crypto`. Check `pkceChallenge` against a verifier and challenge pair f
 
 ---
 
-## 6. [ ] Implement the login-transaction store
+## 6. [✅] Implement the login-transaction store
 
 Create `lib/auth/login-transactions.ts` (server-only), following the "Login transactions are stored server-side too" design decision:
 
