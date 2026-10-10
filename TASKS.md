@@ -180,7 +180,7 @@ The difference between the two status codes: **401** says "I don't know who you 
 
 ---
 
-## 10. [ ] Implement the notes module
+## 10. [✅] Implement the notes module
 
 Generate a `notes` module, controller, and service. Store notes in memory (a `Map` in the service is enough; persistence isn't the point of this phase):
 

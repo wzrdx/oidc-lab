@@ -71,3 +71,12 @@ export async function getSession(): Promise<Session | undefined> {
 export function deleteSession(sessionId: string): void {
     store.delete(sessionId);
 }
+
+// Ends the session the current request belongs to. Server components can't clear cookies,
+// so the cookie stays behind, pointing at nothing: getSession() then returns undefined.
+export async function deleteCurrentSession(): Promise<void> {
+    const sessionId = (await cookies()).get(SESSION_COOKIE)?.value;
+    if (sessionId) {
+        deleteSession(sessionId);
+    }
+}

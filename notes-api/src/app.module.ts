@@ -3,9 +3,10 @@ import { APP_GUARD } from "@nestjs/core";
 import { AppController } from "./app.controller.ts";
 import { AppService } from "./app.service.ts";
 import { AccessTokenGuard } from "./auth/access-token.guard.ts";
+import { NotesModule } from "./notes/notes.module.ts";
 
 @Module({
-    imports: [],
+    imports: [NotesModule],
     controllers: [AppController],
     providers: [
         AppService,
