@@ -54,7 +54,7 @@ Check: `pnpm --filter idp typecheck` passes and the IdP starts.
 
 ---
 
-## 3. [ ] Get a JWT access token by hand
+## 3. [✅] Get a JWT access token by hand
 
 Repeat phase 1's manual flow (tasks 7 to 9 in `TASKS-phase1.md`), with two additions:
 
@@ -76,7 +76,7 @@ Keep one valid JWT access token in a scratch file. You'll use it in task 12, bef
 
 ---
 
-## 4. [ ] Add the `notes-api` settings to `notes-app`
+## 4. [✅] Add the `notes-api` settings to `notes-app`
 
 Add `NOTES_API_URL=http://api.localhost:5000` to `notes-app/.env.local` and `.env.example` (no `NEXT_PUBLIC_` prefix), and read it in `lib/auth/config.ts` like the other variables. It serves two purposes: the resource indicator in token requests, and the base URL for API calls.
 
@@ -86,7 +86,7 @@ Add `NOTES_API_URL=http://api.localhost:5000` to `notes-app/.env.local` and `.en
 
 ---
 
-## 5. [ ] Request an access token for `notes-api` at sign-in
+## 5. [✅] Request an access token for `notes-api` at sign-in
 
 Two small changes in `notes-app`, following task 3:
 
@@ -103,7 +103,7 @@ Check: sign out, sign in again. The IdP shows a consent screen again, because th
 
 ---
 
-## 6. [ ] Add `jose` and the auth configuration to `notes-api`
+## 6. [✅] Add `jose` and the auth configuration to `notes-api`
 
 `pnpm --filter notes-api add jose`. The Nest 12 scaffold is ESM (`"type": "module"`, `module: "nodenext"`) and tests with Vitest, so the CommonJS/Jest concern in `SCAFFOLD.md` doesn't apply. Still, confirm that `jose` loads both in the app and under Vitest before building on it.
 
@@ -121,7 +121,7 @@ They're constants and not env variables because none of them is secret. Changing
 
 ---
 
-## 7. [ ] Write the access-token verification function
+## 7. [✅] Write the access-token verification function
 
 Create `src/auth/verify-access-token.ts`, plain TypeScript with no Nest in it, so it's easy to read and test on its own. It's the API-side mirror of phase 2's `id-token.ts`:
 
