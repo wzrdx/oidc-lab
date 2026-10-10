@@ -232,7 +232,7 @@ Run the IdP and `notes-app` together and check, in the Windows browser at `http:
 
 ---
 
-## 15. [ ] Probe the callback's security checks
+## 15. [✅] Probe the callback's security checks
 
 Show that each check in task 11 rejects bad input and creates no session:
 
@@ -251,7 +251,7 @@ For each probe, note which check caught it.
 
 ---
 
-## 16. [ ] Mark phase 2 complete
+## 16. [✅] Mark phase 2 complete
 
 Once tasks 1 to 15 pass:
 

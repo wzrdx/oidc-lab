@@ -52,10 +52,10 @@ The browser only ever holds a session ID cookie for `notes-app`. It never sees a
 
 ## Phases
 
-Current phase: **2 (not started)**
+Current phase: **3 (not started)**
 
 1. [x] **Bare IdP.** `node-oidc-provider` with the in-memory adapter, one static client, and the built-in dev login screens. Inspect the discovery document and JWKS. Run one flow by hand: build the authorize URL manually, copy the `code` from the address bar, exchange it with `curl`, decode the `id_token`.
-2. [ ] **`notes-app` auth by hand.** Route handlers `app/auth/login`, `app/auth/callback`, `app/auth/logout`. Session store. `id_token` verification.
+2. [x] **`notes-app` auth by hand.** Route handlers `app/auth/login`, `app/auth/callback`, `app/auth/logout`. Session store. `id_token` verification.
 3. [ ] **`notes-api`.** NestJS guard with JWKS verification, `aud`/`iss`/scope checks. Enable JWT access tokens on the IdP. `notes-app` calls the API.
 4. [ ] **Refresh tokens.** `offline_access` scope, rotation, reuse detection (presenting an already-used refresh token must fail), single-flight refresh per session.
 5. [ ] **Real IdP.** Own login and consent pages, users in Postgres via Prisma (argon2 password hashing), Redis adapter for the provider, Redis session store in `notes-app`.

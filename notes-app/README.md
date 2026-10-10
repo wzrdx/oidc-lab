@@ -71,11 +71,11 @@ None of these may have a `NEXT_PUBLIC_` prefix: Next.js inlines those into the b
 
 ## Status
 
-Phase 2 of the [roadmap](../README.md#roadmap), in progress:
+Phase 2 of the [roadmap](../README.md#roadmap) is complete:
 
 - [x] Discovery, PKCE, login-transaction and session stores
 - [x] `/auth/login`, `/auth/callback`, token exchange, `id_token` verification
-- [ ] `POST /auth/logout` (local logout; RP-initiated logout comes in phase 6)
-- [ ] Home page showing the signed-in state
+- [x] `POST /auth/logout` (local logout; RP-initiated logout comes in phase 6)
+- [x] Home page showing the signed-in state
 
 Later phases add calls to `notes-api` with the access token (phase 3) and refresh-token rotation with single-flight refresh (phase 4).
