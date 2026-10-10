@@ -25,7 +25,7 @@ A route with neither `@Public()` nor `@RequireScopes()` returns `500` and logs a
 | `typ: at+jwt`            | An `id_token` used as an access token                         |
 | `iss`                    | Tokens from another IdP                                       |
 | `aud`                    | Tokens issued for another API                                 |
-| `exp`                    | Expired tokens (5-minute lifetime)                            |
+| `exp`                    | Expired tokens (60-second lifetime)                           |
 | `sub`, `client_id`, `scope` present and strings | Malformed tokens                       |
 
 Rejections follow RFC 6750: `WWW-Authenticate: Bearer` (no token), `Bearer error="invalid_token"` (bad token), or `Bearer error="insufficient_scope", scope="..."` (missing scope). The reason is logged on the server; the response stays generic.

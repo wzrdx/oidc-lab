@@ -1,52 +1,38 @@
-# TASKS: Phase 3, `notes-api`
+# TASKS: Phase 4, refresh tokens
 
-Scope: phase 3 from `CLAUDE.md`. Make the IdP issue JWT access tokens for `notes-api`, build `notes-api` as a NestJS resource server that verifies them locally (signature via JWKS, `alg`, `typ`, `iss`, `aud`, `exp`, scopes), and make `notes-app` call it server-side with `Authorization: Bearer`. Phase 2's tasks are archived in `TASKS-phase2.md`.
+Scope: phase 4 from `CLAUDE.md`, the last mandatory phase. When the 60-second access token expires, `notes-app` silently gets a new one with a refresh token instead of signing the user out. The IdP rotates the refresh token on every use and treats reuse of an old one as theft. `notes-app` allows at most one refresh in flight per session. Phase 3's tasks are archived in `TASKS-phase3.md`.
 
-Starting point: `notes-api/` contains only `SCAFFOLD.md`. The IdP registers `notes-app` with `scope: "openid"` and has no resource servers. `notes-app` signs users in and keeps an (unused) access token in the session.
+Starting point: the IdP issues 60-second JWT access tokens for `notes-api`, and no refresh tokens (`notes-app` is registered with `grant_types: ["authorization_code"]` and `scope: "openid"`). `notes-app` treats an expired access token or a `401` from `notes-api` as "signed out" (`SignedOutError`). `notes-api` needs no changes in this phase.
 
 Ground rules that apply to every task:
 
-- No auth libraries on either side. `jose` is the only helper. In `notes-api` that means no `@nestjs/passport` or `passport-jwt`.
-- `notes-api` never logs anyone in and never talks to the browser. It has no CORS configuration on purpose.
-- Tokens still never reach the browser. Only `notes-app` server code calls `notes-api`.
-- The guard, the scope checks, and the `notes-app` API client are hand-written parts. Write them yourself; ask for help per task.
+- No auth libraries. `jose` is the only helper.
+- The refresh token is a long-lived credential: it never reaches the browser and is never logged, same as the other tokens.
+- The refresh logic and single-flight are hand-written parts. Write them yourself; ask for help per task.
 
-Names used throughout:
+How `oidc-provider` 9 behaves here (checked in its source, `lib/helpers/defaults.js` and `lib/actions/grants/refresh_token.js`):
 
-| Thing                          | Value                       |
-| ------------------------------ | --------------------------- |
-| Resource indicator (and `aud`) | `http://api.localhost:5000` |
-| Scopes                         | `notes:read`, `notes:write` |
-| Access token lifetime          | 5 minutes                   |
+| Behaviour                 | Default                                                                                                    |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| Issuing a refresh token   | Only if the client allows the `refresh_token` grant **and** the scopes include `offline_access`            |
+| `offline_access`          | Silently dropped unless the authorize request has `prompt=consent` (and the client can use refresh tokens) |
+| Rotation                  | Always for public clients; for confidential clients only after 70% of the refresh token's lifetime         |
+| Refresh token lifetime    | 14 days                                                                                                    |
+| Reuse of a used token     | Fails with `invalid_grant`, **and revokes the whole grant**: every refresh token from that login           |
+| Token revocation endpoint | Off                                                                                                        |
 
-The resource indicator is a URI because RFC 8707 requires an absolute URI. It doubles as the API's base URL, but that's a convenience: the IdP treats it as an opaque identifier and never calls it.
-
-Tasks 3 and 12 are manual steps that change no files, like phase 1's.
-
----
-
-## 1. [✅] Scaffold `notes-api`
-
-Follow `notes-api/SCAFFOLD.md`: move it out of the folder, run the Nest CLI from the repo root, run its "Check after scaffolding" list, and change the port to `5000`. Decide whether to put `SCAFFOLD.md` back or delete it.
-
-Check: `pnpm --filter notes-api start:dev` serves the default "Hello World!" (the Nest 12 CLI generates an ESM project with Vitest, not Jest) at `http://api.localhost:5000` from the Windows browser.
-
-**Files affected:** `notes-api/` (generated), `notes-api/src/main.ts`, `pnpm-lock.yaml`, possibly `pnpm-workspace.yaml`.
+Tasks 3, 4, 12 and 13 are manual steps that change no files.
 
 ---
 
-## 2. [✅] Register `notes-api` as a resource server in the IdP
+## 1. [✅] Allow refresh tokens for `notes-app`
 
-The `resourceIndicators` feature is already enabled by default in `oidc-provider` 9, but its `getResourceServerInfo` hook throws until you implement it. That hook is how the IdP learns which APIs exist. In `idp/src/index.ts`, set `features.resourceIndicators.getResourceServerInfo` to a function that:
+In `idp/src/index.ts`, change the `notes-app` client:
 
-- for the resource `http://api.localhost:5000`, returns `{ scope: "notes:read notes:write", audience: "http://api.localhost:5000", accessTokenFormat: "jwt", accessTokenTTL: 300, jwt: { sign: { alg: "RS256" } } }`
-- for any other resource, throws `new errors.InvalidTarget()` (import `errors` from `oidc-provider`). An unknown API must get no token at all.
+- `grant_types: ["authorization_code", "refresh_token"]`
+- `scope: "openid offline_access"`
 
-`accessTokenFormat: "jwt"` is the switch from coat-check ticket to signed letter. The 5-minute lifetime is deliberately short so you'll see expiry happen during this phase. Phase 4's refresh tokens then deal with it.
-
-Keep the resource URI and the scopes in named constants; `notes-api` will hard-code the same values on its side.
-
-Check: `pnpm --filter idp typecheck` passes and the IdP starts.
+`offline_access` is how a client asks for a refresh token. It means "keep access after the user leaves". The client's `scope` allowlist applies to it because it's one of the IdP's own scopes (unlike `notes:read`, see phase 3 task 2), so without it here the request fails with `invalid_scope`.
 
 **Files affected:** `idp/src/index.ts`.
 
@@ -54,21 +40,42 @@ Check: `pnpm --filter idp typecheck` passes and the IdP starts.
 
 ---
 
-## 3. [✅] Get a JWT access token by hand
+## 2. [✅] Turn on refresh token rotation
 
-Repeat phase 1's manual flow (tasks 7 to 9 in `TASKS-phase1.md`), with two additions:
+Set `rotateRefreshToken: true` in the provider configuration. With the default, a confidential client like `notes-app` would keep reusing the same refresh token for most of its 14-day lifetime, and reuse detection (task 4) would have nothing to detect.
 
-- The authorize URL gets `scope=openid notes:read notes:write` and `resource=http://api.localhost:5000`.
-- The `curl` to the token endpoint **also** sends `resource=http://api.localhost:5000`.
+Rotation is what makes a stolen refresh token noisy: the thief and the real client both hold the same token, and whoever uses it second presents an already-used token. The IdP can't tell which one is the attacker, so it revokes everything.
 
-Decode the `access_token` (for example with `jose`'s `decodeJwt` and `decodeProtectedHeader` in a Node REPL, or by base64url-decoding the parts) and find:
+Check: `pnpm --filter idp typecheck` passes and the IdP starts.
 
-- in the header: `alg: RS256`, a `kid` matching a key in `/jwks`, and `typ: at+jwt`
-- in the payload: `iss`, `sub`, `aud: http://api.localhost:5000`, `client_id: notes-app`, `scope: notes:read notes:write`, `exp` 5 minutes after `iat`
+**Files affected:** `idp/src/index.ts`.
 
-Then run the flow once more **without** `resource` in the `curl` and look at the `access_token`: a short random string, not a JWT. Here's why. If the token request names no resource and includes `openid`, `oidc-provider` issues an opaque token meant for its own userinfo endpoint. Naming the resource at the authorize request isn't enough by default. Keep this in mind for task 5.
+**Depends on:** 1.
 
-Keep one valid JWT access token in a scratch file. You'll use it in task 12, before it expires or after getting a fresh one.
+---
+
+## 3. [✅] Get and use a refresh token by hand
+
+Repeat phase 3 task 3's manual flow (the commands from that session work), with these changes:
+
+- The authorize URL's `scope` becomes `openid offline_access notes:read notes:write`, and it gets `prompt=consent`. Without `prompt=consent`, `oidc-provider` silently drops `offline_access` and issues no refresh token. OIDC requires explicit consent for offline access, so the user must always see the consent screen for it.
+- The consent screen now mentions offline access.
+- The token response now contains a `refresh_token`. It's opaque: a reference into the IdP's storage, meant only for the IdP.
+
+Then refresh with `curl`:
+
+```
+grant_type=refresh_token
+refresh_token=<the refresh token>
+resource=http://api.localhost:5000
+```
+
+(plus the same `-u notes-app:$CLIENT_SECRET`). Check:
+
+- The response has a **new** `access_token` (a JWT, new `jti`, new `exp`) and a **new** `refresh_token`: that's rotation.
+- Without `resource`, the new access token is opaque again, as in phase 3. The refresh request needs it too.
+
+Keep all refresh tokens you receive, in order, for task 4.
 
 **Files affected:** none.
 
@@ -76,216 +83,163 @@ Keep one valid JWT access token in a scratch file. You'll use it in task 12, bef
 
 ---
 
-## 4. [✅] Add the `notes-api` settings to `notes-app`
+## 4. [✅] Probe reuse detection by hand
 
-Add `NOTES_API_URL=http://api.localhost:5000` to `notes-app/.env.local` and `.env.example` (no `NEXT_PUBLIC_` prefix), and read it in `lib/auth/config.ts` like the other variables. It serves two purposes: the resource indicator in token requests, and the base URL for API calls.
+Continuing from task 3:
 
-**Files affected:** `notes-app/.env.local`, `notes-app/.env.example`, `notes-app/lib/auth/config.ts`.
+1. Refresh with the **first** refresh token, the one already used: expect `400` with `invalid_grant` ("refresh token already used").
+2. Refresh with the **newest** refresh token, which was valid a moment ago: expect `invalid_grant` too. Step 1 revoked the whole grant.
+3. Call `notes-api` with the last access token you got: it **still works** until its `exp`. Revoking the grant at the IdP can't reach a JWT that `notes-api` verifies on its own. That's the JWT trade-off from phase 3, and the reason access tokens are short-lived.
 
-**Depends on:** none.
+**Files affected:** none.
 
----
-
-## 5. [✅] Request an access token for `notes-api` at sign-in
-
-Two small changes in `notes-app`, following task 3:
-
-- `app/auth/login/route.ts`: `scope` becomes `openid notes:read notes:write`, and add `resource` (task 4's value).
-- `lib/auth/token-exchange.ts`: add the same `resource` to the token request body. Without it, you get the opaque token from task 3.
-
-Optionally, log the access token's decoded `aud` and `scope` once in the callback (`jose`'s `decodeJwt`, which reads without verifying), never the token itself. `notes-app` doesn't verify the access token: it's addressed to `notes-api`, and to the client it's an opaque credential to pass along. Reading it for a debug log is fine; making decisions based on it isn't.
-
-Check: sign out, sign in again. The IdP shows a consent screen again, because the existing grant doesn't cover the new scopes. Afterwards the log shows `aud=http://api.localhost:5000` and both scopes.
-
-**Files affected:** `notes-app/app/auth/login/route.ts`, `notes-app/lib/auth/token-exchange.ts`, possibly `notes-app/app/auth/callback/route.ts`.
-
-**Depends on:** 2, 4.
+**Depends on:** 3.
 
 ---
 
-## 6. [✅] Add `jose` and the auth configuration to `notes-api`
+## 5. [ ] Request `offline_access` at sign-in
 
-`pnpm --filter notes-api add jose`. The Nest 12 scaffold is ESM (`"type": "module"`, `module: "nodenext"`) and tests with Vitest, so the CommonJS/Jest concern in `SCAFFOLD.md` doesn't apply. Still, confirm that `jose` loads both in the app and under Vitest before building on it.
+In `app/auth/login/route.ts`, the `scope` becomes `openid offline_access notes:read notes:write`, and add `prompt: 'consent'` (task 3 explains why). The trade-off: the consent screen now appears on every sign-in, even when the IdP session would otherwise skip it.
 
-Create `src/auth/auth.config.ts` with the three values the API trusts, as constants:
+In `lib/auth/token-exchange.ts`, return `refresh_token` as well, and throw if it's missing: without it, `notes-app` can't keep the user signed in, and you want to know that at sign-in, not a minute later.
 
-- `issuer`: `http://idp.localhost:4000`
-- `audience`: `http://api.localhost:5000` (this API's own identity)
-- `jwksUri`: `http://idp.localhost:4000/jwks` (check the exact path in the discovery document)
+Check: sign in again. The consent screen mentions offline access, and the `[token-exchange]` log line can say a refresh token was received (never log its value).
 
-They're constants and not env variables because none of them is secret. Changing any of them changes what the API trusts, so they belong in reviewed code.
-
-**Files affected:** `notes-api/package.json`, `pnpm-lock.yaml`, `notes-api/src/auth/auth.config.ts` (new).
+**Files affected:** `notes-app/app/auth/login/route.ts`, `notes-app/lib/auth/token-exchange.ts`.
 
 **Depends on:** 1.
 
 ---
 
-## 7. [✅] Write the access-token verification function
+## 6. [ ] Store the refresh token in the session
 
-Create `src/auth/verify-access-token.ts`, plain TypeScript with no Nest in it, so it's easy to read and test on its own. It's the API-side mirror of phase 2's `id-token.ts`:
+In `lib/auth/session.ts`:
 
-- `createRemoteJWKSet(new URL(jwksUri))` once, at module level.
-- `jwtVerify(token, jwks, { issuer, audience, algorithms: ["RS256"], typ: "at+jwt", requiredClaims: ["sub", "client_id", "scope"] })`.
-- Return a small typed principal: `{ sub, clientId, scopes: Set<string> }`. The `scope` claim is one space-separated string; split it here, once.
+- Add `refreshToken: string` to `Session`, and pass it through `createSession`. The callback route stores what the token exchange returned.
+- Add `updateSessionTokens(sessionId, { accessToken, accessTokenExpiresAt, refreshToken })`, which replaces the token fields of an existing session and does nothing if the session no longer exists (for example, the user logged out during a refresh).
 
-Every option is a separate check, and each stops a different attack:
+This is where the "server-side session store" design decision pays off: a refresh can happen while a server component renders, and server components can't set cookies. Because the cookie holds only the session ID, the rotated tokens just go into the store.
 
-- `algorithms`: an attacker can't pick a weaker algorithm (or `none`) via the header.
-- `issuer`: a token signed by someone else's IdP is rejected.
-- `audience`: a token issued for another API can't be replayed here. This is the most commonly missed check in real systems.
-- `typ: "at+jwt"`: an `id_token` (`typ: JWT`) can't be used as an access token. `aud` already blocks it today, but the two checks guard against different mix-ups.
-- `exp` is checked by default.
+**Files affected:** `notes-app/lib/auth/session.ts`, `notes-app/app/auth/callback/route.ts`.
 
-**Files affected:** `notes-api/src/auth/verify-access-token.ts` (new).
-
-**Depends on:** 6.
+**Depends on:** 5.
 
 ---
 
-## 8. [✅] Write the authentication guard
+## 7. [ ] Extract the client authentication header
 
-Create `src/auth/access-token.guard.ts`, a Nest `CanActivate` guard:
+The token exchange builds `Authorization: Basic base64(urlencode(client_id):urlencode(client_secret))`. The refresh request (task 8) and token revocation (task 11) need the same header. Move it into a small helper, for example `clientAuthHeader()` in `lib/auth/client-auth.ts` (server-only), and use it in `token-exchange.ts`.
 
-1. Read the `Authorization` header. Accept only `Bearer <token>`: the scheme is case-insensitive, and anything else is "no token".
-2. Call task 7's function. On any failure, throw `UnauthorizedException`.
-3. Attach the principal to the request (for example `request.principal`), so handlers can read `sub`.
+**Files affected:** `notes-app/lib/auth/client-auth.ts` (new), `notes-app/lib/auth/token-exchange.ts`.
 
-The 401 response should include `WWW-Authenticate: Bearer error="invalid_token"` (RFC 6750); without any token, plain `WWW-Authenticate: Bearer`. As in the callback: log the reason on the server, keep the response generic.
+**Depends on:** none.
 
-Register it globally with `APP_GUARD` in `AppModule`, so every route is protected by default and a new route can't be left open by forgetting a decorator. Add a `@Public()` decorator (`SetMetadata` + `Reflector`) for the rare route that doesn't need a token. Mark the generated `GET /` with it as a health check.
+---
 
-Check: `curl -i http://api.localhost:5000/` returns 200. There's no protected route until task 10, and an unknown path returns 404 before any guard runs, so test the 401 with a temporary route without `@Public()`.
+## 8. [ ] Write the refresh request
 
-**Files affected:** `notes-api/src/auth/access-token.guard.ts` (new), `notes-api/src/auth/public.decorator.ts` (new), `notes-api/src/app.module.ts`, `notes-api/src/app.controller.ts`.
+Create `lib/auth/refresh.ts` (server-only) with a function that takes a refresh token and calls `token_endpoint`:
+
+- `POST` with a `URLSearchParams` body: `grant_type=refresh_token`, `refresh_token`, and `resource` (task 3 showed why), plus the client authentication header from task 7.
+- Return `access_token`, `expires_in`, and the **new** `refresh_token`. If the response has no `refresh_token`, throw: rotation is on, so a missing one means something is misconfigured.
+- On `400` with `error=invalid_grant` (the refresh token expired, was revoked, or was already used), throw a dedicated error class, for example `RefreshRejectedError`. It means "this session is over". Anything else (IdP unreachable, `500`) is an ordinary error: the user might still be fine after a retry.
+
+The response also contains a new `id_token`. You can ignore it: the session keeps the original one, and the user's identity doesn't change on refresh.
+
+**Files affected:** `notes-app/lib/auth/refresh.ts` (new).
 
 **Depends on:** 7.
 
 ---
 
-## 9. [✅] Add the `@RequireScopes()` decorator and the scope check
+## 9. [ ] Refresh with at most one request in flight per session
 
-Create `src/auth/require-scopes.decorator.ts`: `@RequireScopes("notes:write")` stores the required scopes as route metadata.
+Create a function like `getFreshAccessToken(sessionId, { force })` that returns an access token that's valid for at least the next 10 seconds:
 
-Extend the guard (or add a second global guard after it):
+1. If the session's token is still valid (and `force` isn't set), return it.
+2. If a refresh for this session is already running, wait for it and return its result.
+3. Otherwise start one: call task 8's function, save the result with `updateSessionTokens`, and return the new access token.
 
-- If the route has required scopes and the token's `scopes` set lacks any of them, throw `ForbiddenException` with `WWW-Authenticate: Bearer error="insufficient_scope", scope="<required scopes>"`.
-- If a route is neither `@Public()` nor `@RequireScopes(...)`, reject it as well. Failing closed means a route without a scope declaration is a bug you see immediately, not a hole you find later.
+The in-flight refreshes live in a `Map<sessionId, Promise<...>>` on `globalThis`, like the stores. Remove the entry when the refresh finishes, whether it succeeded or failed.
 
-The difference between the two status codes: **401** says "I don't know who you are" (no token, or a bad one). **403** says "I know who you are, and this token isn't allowed to do this".
+Why this matters: the home page and a Server Action, or two parallel API calls, can both find an expired token at the same moment. Without single-flight, both send the same refresh token. The second one is a reuse, so the IdP revokes the grant (task 4) and the user is signed out, by your own app. Task 13 shows this.
 
-**Files affected:** `notes-api/src/auth/require-scopes.decorator.ts` (new), `notes-api/src/auth/access-token.guard.ts` (or a new scopes guard), `notes-api/src/app.module.ts`.
+The `Map` only coordinates requests inside one Node process. With several `notes-app` instances you'd need a shared lock (for example in Redis), which is out of scope here.
 
-**Depends on:** 8.
+**Files affected:** `notes-app/lib/auth/refresh.ts` (or a new module next to it), possibly `notes-app/lib/auth/session.ts`.
+
+**Depends on:** 6, 8.
 
 ---
 
-## 10. [✅] Implement the notes module
+## 10. [ ] Use refreshed tokens in the API client
 
-Generate a `notes` module, controller, and service. Store notes in memory (a `Map` in the service is enough; persistence isn't the point of this phase):
+Update `lib/notes-api.ts`:
 
-| Route               | Scope         | Does                                     |
-| ------------------- | ------------- | ---------------------------------------- |
-| `GET /notes`        | `notes:read`  | Lists the caller's notes                 |
-| `POST /notes`       | `notes:write` | Creates a note from `{ "text": string }` |
-| `DELETE /notes/:id` | `notes:write` | Deletes one of the caller's notes        |
+- Get the token from `getFreshAccessToken` instead of checking `accessTokenExpiresAt` yourself. An expired access token is no longer "signed out".
+- On a `401` from `notes-api`, refresh once with `force: true` and retry the request **once**. A second `401` means the problem isn't the token's age: sign out.
+- If the refresh throws `RefreshRejectedError`, delete the session and throw `SignedOutError`, as before. Other refresh errors propagate as ordinary errors.
 
-A note is `{ id, ownerSub, text, createdAt }`. The owner always comes from the verified token's `sub`, **never** from the request body or a header. Every read and delete filters by it. Scopes answer "may this app do this kind of action"; `sub` answers "whose data". Both checks are needed.
-
-Deleting a note that doesn't exist **or belongs to someone else** returns `404`, not `403`: a `403` would confirm that the ID exists. Validate the body by hand: `text` must be a non-empty string with a sensible maximum length, otherwise `400`.
-
-**Files affected:** `notes-api/src/notes/` (new: module, controller, service), `notes-api/src/app.module.ts`.
+**Files affected:** `notes-app/lib/notes-api.ts`.
 
 **Depends on:** 9.
 
 ---
 
-## 11. [✅] Write the `notes-app` API client
+## 11. [ ] Revoke the refresh token on logout
 
-Create `lib/notes-api.ts` (starts with `import "server-only"`). It's the only place in `notes-app` that touches the access token:
+A local logout deletes the session, but the refresh token stays valid at the IdP for up to 14 days. Only `notes-app`'s server ever held it, so the risk is small, but a logout should end it:
 
-- A function like `notesApiFetch(path, init)` that loads the session, sends `Authorization: Bearer <accessToken>` to `${NOTES_API_URL}${path}`, and returns the parsed response.
-- If the access token has expired (`accessTokenExpiresAt` from phase 2 is in the past), don't call the API: it would return 401 anyway. Report "signed out" to the caller.
-- If the API returns `401` anyway, treat it the same way. Until phase 4 adds refresh, the user has to sign in again; the UI should say so, not crash.
-- Typed helpers on top: `listNotes()`, `createNote(text)`, `deleteNote(id)`.
+- In the IdP, enable `features.revocation` (RFC 7009). The discovery document now lists a `revocation_endpoint`.
+- Add `revocation_endpoint` to `notes-app`'s discovery document type.
+- In `app/auth/logout/route.ts`, before deleting the session, `POST` to it with `token=<refresh token>`, `token_type_hint=refresh_token`, and the client authentication header (task 7). If it fails, log it and still log out locally: the user asked to leave.
 
-**Files affected:** `notes-app/lib/notes-api.ts` (new).
+Check: log out, then try the refresh token you just revoked with `curl` (copy it from a debug log beforehand, then remove that log): `invalid_grant`.
 
-**Depends on:** 5, 10.
+**Files affected:** `idp/src/index.ts`, `notes-app/lib/auth/discovery.ts`, `notes-app/app/auth/logout/route.ts`.
 
----
-
-## 12. [✅] Probe `notes-api` with `curl`
-
-With the API running, use the JWT from task 3 (or a fresh one) and check that each case gets the expected response, and note which check caught it:
-
-- **No token:** `401` with `WWW-Authenticate: Bearer`.
-- **Malformed header** (`Authorization: Basic ...`, `Bearer` with nothing after it): `401`.
-- **Valid token:** `GET /notes` → `200`, `POST /notes` → `201`.
-- **Tampered payload:** change one character in the payload part: `401` (signature).
-- **`alg: none`:** a hand-built token with `{"alg":"none"}` and no signature: `401` (algorithm allowlist).
-- **The `id_token` as a Bearer token:** `401` (`typ` and `aud`).
-- **Opaque token** from task 3's run without `resource`: `401` (not a JWT).
-- **Expired token:** wait 5 minutes, retry: `401`.
-- **Missing scope:** get a token with only `scope=openid notes:read` (and `resource`), then `POST /notes`: `403` with `insufficient_scope`. `GET /notes` still works.
-- **Another user's note:** create a note as one user, then `DELETE` it with a token for a different `sub` (the dev login accepts any username): `404`.
-
-**Files affected:** none.
-
-**Depends on:** 3, 10.
+**Depends on:** 6, 7.
 
 ---
 
-## 13. [✅] Show the user's notes on the home page
-
-When signed in, the home page lists the user's notes via `listNotes()` (task 11), in a server component. If the client reports "signed out" (expired token), show a short message and the "Sign in" link instead of the list.
-
-As in phase 2: pass only note data (`id`, `text`, `createdAt`) to anything rendered. Never pass a token or the session.
-
-**Files affected:** `notes-app/app/page.tsx` and/or a component next to `identity.tsx`.
-
-**Depends on:** 11.
-
----
-
-## 14. [✅] Create and delete notes from the home page
-
-Add a form to create a note and a delete button per note, using **Server Actions** that call `createNote` / `deleteNote` on the server and then revalidate the page. This version of Next.js has breaking changes, so read its Server Actions guide in `notes-app/node_modules/next/dist/docs/` first.
-
-Server Actions are POST requests, and Next.js checks their `Origin` against the host, which protects them from CSRF in the same way that `SameSite=Lax` protects logout. Check that the guide confirms this for this version, and that `allowedDevOrigins` / `serverActions.allowedOrigins` doesn't need `app.localhost`.
-
-**Files affected:** `notes-app/app/` (actions file and the components from task 13).
-
-**Depends on:** 13.
-
----
-
-## 15. [✅] Test the full flow by hand
+## 12. [ ] Test the full flow by hand
 
 In the Windows browser at `http://app.localhost:3000`:
 
-- **Sign in** (consent shows the new scopes), then create, list, and delete notes.
-- **Two users:** sign in as a different username in another browser profile. Each user sees only their own notes.
-- **No tokens in the page:** view the page source and search for `eyJ`. No match, even now that the page shows API data.
-- **No browser calls to the API:** the Network tab shows no request to `api.localhost`. Every call goes from the `notes-app` server.
-- **Expiry:** wait 5 minutes after signing in and reload. The page says you need to sign in again, and doesn't crash. (Phase 4 makes this invisible.)
-- **Restart `notes-api`:** the notes are gone (in-memory store), but you stay signed in. Two independent stores.
+- **Silent refresh:** sign in, wait past the access token's lifetime, reload. The notes still show, and the `notes-app` log shows one refresh. No sign-in prompt.
+- **Rotation:** add a temporary log of the refresh token's first few characters in `updateSessionTokens`; it changes on every refresh. Remove the log afterwards.
+- **Server Actions:** create and delete notes after the token has expired. The action refreshes first.
+- **Restart the IdP:** its in-memory adapter forgets every refresh token. Wait for expiry and reload: the refresh fails with `invalid_grant`, and the page shows "Your session has expired" instead of crashing.
+- **Logout:** log out and confirm the revocation in the log (task 11).
+- **No tokens in the page:** still no `eyJ` in the page source.
 
-**Files affected:** none.
+**Files affected:** none (except the temporary log, removed).
 
-**Depends on:** 12, 14.
+**Depends on:** 10, 11.
 
 ---
 
-## 16. [✅] Mark phase 3 complete
+## 13. [ ] Show why single-flight matters
 
-Once tasks 1 to 15 pass:
+1. Temporarily make the home page call `listNotes()` three times in parallel (`Promise.all`).
+2. Sign in, wait for the access token to expire, and reload. The log shows **one** refresh, and the page works.
+3. Temporarily bypass the in-flight `Map` (always start a new refresh) and repeat. The three requests refresh with the same refresh token: the IdP sees reuse, revokes the grant, and you're signed out.
+4. Undo both temporary changes.
 
-- `CLAUDE.md`: tick the phase 3 checkbox and change "Current phase" to `4 (not started)`.
-- `README.md`: tick roadmap item 3, add `pnpm --filter notes-api start:dev` to "Install and run", and remove the "`notes-api/` isn't scaffolded yet" sentence.
-- `notes-app/README.md`: mention the `notes-api` calls and `NOTES_API_URL`.
-- Replace `notes-api/README.md` (generated by Nest) with a description of the project, like `notes-app`'s.
+**Files affected:** none (temporary changes only, reverted).
 
-**Files affected:** `CLAUDE.md`, `README.md`, `notes-app/README.md`, `notes-api/README.md`.
+**Depends on:** 12.
 
-**Depends on:** 15.
+---
+
+## 14. [ ] Mark phase 4 complete
+
+Once tasks 1 to 13 pass:
+
+- `CLAUDE.md`: tick the phase 4 checkbox and change "Current phase" to show that the mandatory phases are complete (phase 5 is optional). Add a gotcha: `offline_access` is silently dropped unless the authorize request has `prompt=consent`.
+- `README.md`: tick roadmap item 4.
+- `notes-app/README.md`: describe the refresh, single-flight, the retry on `401`, and revocation on logout.
+
+**Files affected:** `CLAUDE.md`, `README.md`, `notes-app/README.md`.
+
+**Depends on:** 12, 13.

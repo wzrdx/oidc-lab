@@ -91,4 +91,4 @@ Phases 2 and 3 of the [roadmap](../README.md#roadmap) are complete:
 - [x] Home page showing the signed-in state
 - [x] Access token for `notes-api`, server-side API client, notes list, create and delete
 
-Next is refresh-token rotation with single-flight refresh (phase 4): until then, users have to sign in again when the 5-minute access token expires.
+Next is refresh-token rotation with single-flight refresh (phase 4): until then, users have to sign in again when the 60-second access token expires.
