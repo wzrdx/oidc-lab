@@ -30,6 +30,9 @@ export async function exchangeCodeForTokens(
             code,
             code_verifier: codeVerifier,
             grant_type: 'authorization_code',
+            // Must repeat the authorize request's resource: without it, oidc-provider issues
+            // an opaque userinfo token instead of a JWT for notes-api.
+            resource: oidcConfig.notesApiUrl,
         }),
     });
 

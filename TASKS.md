@@ -200,7 +200,7 @@ Deleting a note that doesn't exist **or belongs to someone else** returns `404`,
 
 ---
 
-## 11. [ ] Write the `notes-app` API client
+## 11. [✅] Write the `notes-app` API client
 
 Create `lib/notes-api.ts` (starts with `import "server-only"`). It's the only place in `notes-app` that touches the access token:
 
@@ -215,7 +215,7 @@ Create `lib/notes-api.ts` (starts with `import "server-only"`). It's the only pl
 
 ---
 
-## 12. [ ] Probe `notes-api` with `curl`
+## 12. [✅] Probe `notes-api` with `curl`
 
 With the API running, use the JWT from task 3 (or a fresh one) and check that each case gets the expected response, and note which check caught it:
 
@@ -236,7 +236,7 @@ With the API running, use the JWT from task 3 (or a fresh one) and check that ea
 
 ---
 
-## 13. [ ] Show the user's notes on the home page
+## 13. [✅] Show the user's notes on the home page
 
 When signed in, the home page lists the user's notes via `listNotes()` (task 11), in a server component. If the client reports "signed out" (expired token), show a short message and the "Sign in" link instead of the list.
 
