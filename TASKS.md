@@ -143,7 +143,7 @@ Every option is a separate check, and each stops a different attack:
 
 ---
 
-## 8. [ ] Write the authentication guard
+## 8. [✅] Write the authentication guard
 
 Create `src/auth/access-token.guard.ts`, a Nest `CanActivate` guard:
 
@@ -155,7 +155,7 @@ The 401 response should include `WWW-Authenticate: Bearer error="invalid_token"`
 
 Register it globally with `APP_GUARD` in `AppModule`, so every route is protected by default and a new route can't be left open by forgetting a decorator. Add a `@Public()` decorator (`SetMetadata` + `Reflector`) for the rare route that doesn't need a token. Mark the generated `GET /` with it as a health check.
 
-Check: `curl -i http://api.localhost:5000/` returns 200, and any other route returns 401 without a token.
+Check: `curl -i http://api.localhost:5000/` returns 200. There's no protected route until task 10, and an unknown path returns 404 before any guard runs, so test the 401 with a temporary route without `@Public()`.
 
 **Files affected:** `notes-api/src/auth/access-token.guard.ts` (new), `notes-api/src/auth/public.decorator.ts` (new), `notes-api/src/app.module.ts`, `notes-api/src/app.controller.ts`.
 
@@ -163,7 +163,7 @@ Check: `curl -i http://api.localhost:5000/` returns 200, and any other route ret
 
 ---
 
-## 9. [ ] Add the `@RequireScopes()` decorator and the scope check
+## 9. [✅] Add the `@RequireScopes()` decorator and the scope check
 
 Create `src/auth/require-scopes.decorator.ts`: `@RequireScopes("notes:write")` stores the required scopes as route metadata.
 
