@@ -45,7 +45,7 @@ sequenceDiagram
 
 - [x] **1. Bare IdP:** in-memory provider, one static client, a full flow driven by hand with `curl`
 - [x] **2. Client auth by hand:** login, callback, logout, server-side sessions, `id_token` verification
-- [ ] **3. Resource API:** JWT access tokens, NestJS guard with JWKS, `aud`/`iss`/scope checks
+- [x] **3. Resource API:** JWT access tokens, NestJS guard with JWKS, `aud`/`iss`/scope checks
 - [ ] **4. Refresh tokens:** rotation, reuse detection, single-flight refresh per session
 - [ ] **5. Real IdP:** own login and consent pages, Postgres + Prisma, argon2, Redis
 - [ ] **6. SSO and logout:** a second client app, RP-initiated and back-channel logout
@@ -68,10 +68,9 @@ pnpm install
 pnpm --filter idp dev        # http://idp.localhost:4000
 pnpm --filter idp typecheck  # tsx doesn't type-check, tsc does
 pnpm --filter notes-app dev  # http://app.localhost:3000 (setup: notes-app/README.md)
+pnpm --filter notes-api start:dev  # http://api.localhost:5000
 ```
 
 Then open the discovery document at `http://idp.localhost:4000/.well-known/openid-configuration`.
 
 > ⚠️ The IdP currently runs with `oidc-provider`'s built-in development signing key. Its private half is public, so never trust tokens from this setup outside local development.
-
-`notes-api/` isn't scaffolded yet; see the `SCAFFOLD.md` in its folder.

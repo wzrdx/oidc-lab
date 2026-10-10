@@ -1,124 +1,65 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# notes-api
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+The resource server of [oidc-lab](../README.md): a NestJS API that stores notes and verifies JWT access tokens issued by the lab's identity provider. It never logs anyone in and never talks to the browser; only `notes-app`'s server calls it.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+Runs at `http://api.localhost:5000`.
 
-## Description
+## How it works
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+Every request goes through one global guard (`AccessTokenGuard`, registered with `APP_GUARD`), which answers three questions in order:
 
-## Project setup
+1. **Is the route `@Public()`?** Then no token is needed. Only `GET /` (health check) is.
+2. **Is the access token valid?** Otherwise `401`.
+3. **Does it carry the route's `@RequireScopes(...)`?** Otherwise `403`.
 
-```bash
-$ pnpm install
-```
+A route with neither `@Public()` nor `@RequireScopes()` returns `500` and logs an error: every route must say who may call it, so forgetting fails closed.
 
-## Compile and run the project
+### Token checks
 
-```bash
-# development
-$ pnpm run start
+`verifyAccessToken` uses `jose`, with the IdP's keys fetched from its JWKS endpoint and cached. No call to the IdP per request.
 
-# watch mode
-$ pnpm run start:dev
+| Check                    | Stops                                                         |
+| ------------------------ | ------------------------------------------------------------- |
+| Signature (JWKS)         | Forged or modified tokens                                     |
+| `alg` pinned to `RS256`  | Algorithm downgrade, `alg: none`                              |
+| `typ: at+jwt`            | An `id_token` used as an access token                         |
+| `iss`                    | Tokens from another IdP                                       |
+| `aud`                    | Tokens issued for another API                                 |
+| `exp`                    | Expired tokens (5-minute lifetime)                            |
+| `sub`, `client_id`, `scope` present and strings | Malformed tokens                       |
 
-# production mode
-$ pnpm run start:prod
-```
+Rejections follow RFC 6750: `WWW-Authenticate: Bearer` (no token), `Bearer error="invalid_token"` (bad token), or `Bearer error="insufficient_scope", scope="..."` (missing scope). The reason is logged on the server; the response stays generic.
 
-## Run tests
+### Routes
 
-```bash
-# unit tests
-$ pnpm run test
+| Route               | Scope         | Does                                     |
+| ------------------- | ------------- | ---------------------------------------- |
+| `GET /notes`        | `notes:read`  | Lists the caller's notes                 |
+| `POST /notes`       | `notes:write` | Creates a note from `{ "text": string }` |
+| `DELETE /notes/:id` | `notes:write` | Deletes one of the caller's notes        |
 
-# e2e tests
-$ pnpm run test:e2e
+The owner of a note is always the token's `sub`, never anything in the request. Scopes limit what the client app may do; `sub` decides whose notes it may touch. Someone else's note returns `404`, the same as a note that doesn't exist. Notes are kept in memory and disappear on restart.
 
-# test coverage
-$ pnpm run test:cov
-```
+## Code layout
 
-## Deployment
+| Path                                  | What it does                                                    |
+| ------------------------------------- | --------------------------------------------------------------- |
+| `src/auth/auth.config.ts`             | The issuer, audience, and JWKS URI this API trusts              |
+| `src/auth/verify-access-token.ts`     | Token verification with `jose`, returns a typed principal       |
+| `src/auth/access-token.guard.ts`      | The global guard: public check, authentication, scopes          |
+| `src/auth/public.decorator.ts`        | `@Public()`                                                     |
+| `src/auth/require-scopes.decorator.ts`| `@RequireScopes(...)`, typed to the scopes the API knows        |
+| `src/notes/`                          | Notes controller, in-memory service, module                     |
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+No Passport: the guard and the decorators are written by hand. There's no CORS configuration on purpose, because no browser ever calls this API.
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+## Setup
+
+Requires the IdP to be running (see the [root README](../README.md)). No environment variables: everything the API trusts is a reviewed constant in `auth.config.ts`.
 
 ```bash
-$ pnpm install -g @nestjs/mau
-$ mau deploy
+pnpm --filter notes-api start:dev   # http://api.localhost:5000
+pnpm --filter notes-api test        # Vitest
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
-
-## Observability
-
-In production applications, observability is essential for understanding how your system behaves, detecting issues early, and maintaining reliable performance.
-
-[NestJS Observe](https://observe.nestjs.com) automatically instruments your NestJS application, giving you deep visibility into your system with minimal setup:
-
-- **Distributed tracing:** Follow requests across services and understand how they flow through your system.
-- **Waterfall analysis:** Visualize request execution and identify slow operations, bottlenecks, and unexpected delays.
-- **Performance analysis:** Analyze application performance in real time and quickly pinpoint areas that need optimization.
-- **Metrics:** Track key application and infrastructure metrics to understand system health and performance trends.
-- **Logging:** Centralize and correlate logs with traces and other telemetry to make debugging easier.
-- **Error tracking:** Detect errors quickly and investigate their root causes with the surrounding context.
-- **SLA monitoring:** Track service-level objectives and identify when your application is approaching or exceeding defined thresholds.
-- **Alarms and alerts:** Set up alerts for critical errors, performance degradation, SLA violations, and other anomalies so your team can react quickly.
-
-To add it to this project:
-
-```bash
-$ pnpm install @nestjs/observe
-```
-
-Then follow the [setup guide](https://docs.nestjs.com/observability/overview) - it takes a single import and an app key.
-
-The free plan needs no payment details and covers 300,000 events a month. You can also browse the [live demo](https://www.observe-demo.nestjs.com/dashboard) first - the whole dashboard over a busy service's data, with nothing to install.
-
-## Resources
-
-Check out a few resources that may come in handy when working with NestJS:
-
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Auto-instrument your application with [NestJS Observe](https://observe.nestjs.com). Distributed tracing, metrics, and logging made easy. Error tracking and performance monitoring for your NestJS applications.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+The project is ESM (`"type": "module"`). Relative imports use `.ts` extensions; `rewriteRelativeImportExtensions` turns them into `.js` when compiling.
