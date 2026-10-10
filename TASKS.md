@@ -13,11 +13,11 @@ Ground rules that apply to every task:
 
 Names used throughout:
 
-| Thing                          | Value                        |
-| ------------------------------ | ---------------------------- |
-| Resource indicator (and `aud`) | `http://api.localhost:5000`  |
-| Scopes                         | `notes:read`, `notes:write`  |
-| Access token lifetime          | 5 minutes                    |
+| Thing                          | Value                       |
+| ------------------------------ | --------------------------- |
+| Resource indicator (and `aud`) | `http://api.localhost:5000` |
+| Scopes                         | `notes:read`, `notes:write` |
+| Access token lifetime          | 5 minutes                   |
 
 The resource indicator is a URI because RFC 8707 requires an absolute URI. It doubles as the API's base URL, but that's a convenience: the IdP treats it as an opaque identifier and never calls it.
 
@@ -25,7 +25,7 @@ Tasks 3 and 12 are manual steps that change no files, like phase 1's.
 
 ---
 
-## 1. [ ] Scaffold `notes-api`
+## 1. [✅] Scaffold `notes-api`
 
 Follow `notes-api/SCAFFOLD.md`: move it out of the folder, run the Nest CLI from the repo root, run its "Check after scaffolding" list, and change the port to `5000`. Decide whether to put `SCAFFOLD.md` back or delete it.
 
@@ -35,7 +35,7 @@ Check: `pnpm --filter notes-api start:dev` serves the default "Hello World!" (th
 
 ---
 
-## 2. [ ] Register `notes-api` as a resource server in the IdP
+## 2. [✅] Register `notes-api` as a resource server in the IdP
 
 The `resourceIndicators` feature is already enabled by default in `oidc-provider` 9, but its `getResourceServerInfo` hook throws until you implement it. That hook is how the IdP learns which APIs exist. In `idp/src/index.ts`, set `features.resourceIndicators.getResourceServerInfo` to a function that:
 
@@ -184,11 +184,11 @@ The difference between the two status codes: **401** says "I don't know who you 
 
 Generate a `notes` module, controller, and service. Store notes in memory (a `Map` in the service is enough; persistence isn't the point of this phase):
 
-| Route               | Scope         | Does                                            |
-| ------------------- | ------------- | ----------------------------------------------- |
-| `GET /notes`        | `notes:read`  | Lists the caller's notes                        |
-| `POST /notes`       | `notes:write` | Creates a note from `{ "text": string }`        |
-| `DELETE /notes/:id` | `notes:write` | Deletes one of the caller's notes               |
+| Route               | Scope         | Does                                     |
+| ------------------- | ------------- | ---------------------------------------- |
+| `GET /notes`        | `notes:read`  | Lists the caller's notes                 |
+| `POST /notes`       | `notes:write` | Creates a note from `{ "text": string }` |
+| `DELETE /notes/:id` | `notes:write` | Deletes one of the caller's notes        |
 
 A note is `{ id, ownerSub, text, createdAt }`. The owner always comes from the verified token's `sub`, **never** from the request body or a header. Every read and delete filters by it. Scopes answer "may this app do this kind of action"; `sub` answers "whose data". Both checks are needed.
 

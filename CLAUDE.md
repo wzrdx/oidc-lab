@@ -20,11 +20,11 @@ The goal is understanding, not shipping. When there's a choice between a shortcu
 
 pnpm monorepo with three apps:
 
-| App              | Stack                          | URL                         | Role                                                                     |
-| ---------------- | ------------------------------ | --------------------------- | ------------------------------------------------------------------------ |
-| `idp`            | Express + `node-oidc-provider` | `http://idp.localhost:4000` | Identity provider: users, login/consent pages, issues tokens, serves JWKS |
-| `notes-app`      | Next.js                        | `http://app.localhost:3000` | Client app: UI + BFF. Runs the OAuth flow, holds tokens server-side       |
-| `notes-api`      | NestJS                         | `http://api.localhost:5000` | Resource server: notes CRUD, verifies JWT access tokens                   |
+| App         | Stack                          | URL                         | Role                                                                      |
+| ----------- | ------------------------------ | --------------------------- | ------------------------------------------------------------------------- |
+| `idp`       | Express + `node-oidc-provider` | `http://idp.localhost:4000` | Identity provider: users, login/consent pages, issues tokens, serves JWKS |
+| `notes-app` | Next.js                        | `http://app.localhost:3000` | Client app: UI + BFF. Runs the OAuth flow, holds tokens server-side       |
+| `notes-api` | NestJS                         | `http://api.localhost:5000` | Resource server: notes CRUD, verifies JWT access tokens                   |
 
 The browser only ever holds a session ID cookie for `notes-app`. It never sees a token.
 
@@ -54,10 +54,15 @@ The browser only ever holds a session ID cookie for `notes-app`. It never sees a
 
 Current phase: **3 (not started)**
 
+### Mandatory
+
 1. [x] **Bare IdP.** `node-oidc-provider` with the in-memory adapter, one static client, and the built-in dev login screens. Inspect the discovery document and JWKS. Run one flow by hand: build the authorize URL manually, copy the `code` from the address bar, exchange it with `curl`, decode the `id_token`.
 2. [x] **`notes-app` auth by hand.** Route handlers `app/auth/login`, `app/auth/callback`, `app/auth/logout`. Session store. `id_token` verification.
 3. [ ] **`notes-api`.** NestJS guard with JWKS verification, `aud`/`iss`/scope checks. Enable JWT access tokens on the IdP. `notes-app` calls the API.
 4. [ ] **Refresh tokens.** `offline_access` scope, rotation, reuse detection (presenting an already-used refresh token must fail), single-flight refresh per session.
+
+### Optional
+
 5. [ ] **Real IdP.** Own login and consent pages, users in Postgres via Prisma (argon2 password hashing), Redis adapter for the provider, Redis session store in `notes-app`.
 6. [ ] **SSO and logout.** Add a second client app (e.g. `todos-app`): after logging into one, the other skips the password prompt. RP-initiated logout; optionally back-channel logout.
 7. [ ] **Stretch.** Signing key rotation (two keys in the JWKS), DPoP sender-constrained tokens.

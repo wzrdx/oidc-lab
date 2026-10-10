@@ -1,5 +1,5 @@
 import express from "express";
-import Provider, { type ClientMetadata, type Configuration } from "oidc-provider";
+import Provider, { type ClientMetadata, type Configuration, errors, type ResourceServer } from "oidc-provider";
 
 process.loadEnvFile(); // loads .env from the process cwd (idp/ when you run pnpm --filter idp)
 
@@ -16,6 +16,12 @@ const COOKIE_KEYS = requireEnv("COOKIE_KEYS");
 
 const ISSUER = "http://idp.localhost:4000";
 
+// The one API this IdP issues access tokens for. RFC 8707 requires the resource
+// indicator to be an absolute URI; the IdP treats it as an identifier and never calls it.
+const NOTES_API_RESOURCE = "http://api.localhost:5000";
+const NOTES_API_SCOPES = ["notes:read", "notes:write"];
+const ACCESS_TOKEN_TTL_SECONDS = 5 * 60; // short on purpose: phase 4's refresh tokens handle expiry
+
 // Configuration
 const clients: ClientMetadata[] = [
     {
@@ -29,7 +35,31 @@ const clients: ClientMetadata[] = [
     },
 ];
 
-const configuration: Configuration = { clients, cookies: { keys: COOKIE_KEYS.split(",") } };
+// Called whenever a client requests a token with a `resource` parameter: this is how the IdP
+// learns which APIs exist, which scopes each understands, and what its access tokens look like.
+async function getResourceServerInfo(_ctx: unknown, resourceIndicator: string): Promise<ResourceServer> {
+    if (resourceIndicator === NOTES_API_RESOURCE) {
+        return {
+            scope: NOTES_API_SCOPES.join(" "),
+            audience: NOTES_API_RESOURCE, // becomes the token's `aud`, which notes-api checks
+            accessTokenFormat: "jwt", // signed, self-contained: notes-api verifies it via JWKS, no call back here
+            accessTokenTTL: ACCESS_TOKEN_TTL_SECONDS,
+            jwt: { sign: { alg: "RS256" } },
+        };
+    }
+
+    // An unknown API gets no token at all (error=invalid_target).
+    throw new errors.InvalidTarget();
+}
+
+const configuration: Configuration = {
+    clients,
+    cookies: { keys: COOKIE_KEYS.split(",") },
+    features: {
+        // Enabled by default in oidc-provider 9, but getResourceServerInfo throws until it's provided.
+        resourceIndicators: { enabled: true, getResourceServerInfo },
+    },
+};
 
 const provider = new Provider(ISSUER, configuration);
 
