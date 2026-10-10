@@ -80,6 +80,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         idToken: tokens.id_token,
         accessToken: tokens.access_token,
         expiresIn: tokens.expires_in,
+        refreshToken: tokens.refresh_token,
     });
 
     // Log who signed in, never the session ID: it's a bearer credential for this app.

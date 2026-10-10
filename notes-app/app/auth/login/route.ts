@@ -13,8 +13,11 @@ export async function GET(): Promise<NextResponse> {
         client_id: oidcConfig.clientId,
         redirect_uri: oidcConfig.redirectUri,
         response_type: 'code',
-        scope: 'openid notes:read notes:write',
+        // offline_access asks for a refresh token.
+        scope: 'openid offline_access notes:read notes:write',
         resource: oidcConfig.notesApiUrl,
+        // Without prompt=consent, oidc-provider silently drops offline_access (OIDC requires explicit consent).
+        prompt: 'consent',
         state: loginTransaction.state,
         nonce: loginTransaction.nonce,
         code_challenge: pkceChallenge(loginTransaction.codeVerifier),

@@ -1,4 +1,5 @@
 import 'server-only';
+import { clientAuthHeader } from './client-auth';
 import { oidcConfig } from './config';
 import { type DiscoveryDocument, getDiscoveryDocument } from './discovery';
 
@@ -8,21 +9,17 @@ export async function exchangeCodeForTokens(
 ): Promise<{
     access_token: string;
     id_token: string;
+    refresh_token: string;
     expires_in: number;
     token_type: string;
 }> {
     const discoveryDocument: DiscoveryDocument = await getDiscoveryDocument();
 
-    const basic = Buffer.from(
-        `${encodeURIComponent(oidcConfig.clientId)}:${encodeURIComponent(oidcConfig.clientSecret)}`,
-        'utf8',
-    ).toString('base64');
-
     // RFC 6749 §4.1.3: parameters go in the form-encoded body, never the URL.
     // fetch sets Content-Type: application/x-www-form-urlencoded for a URLSearchParams body.
     const response = await fetch(discoveryDocument.token_endpoint, {
         headers: {
-            Authorization: `Basic ${basic}`,
+            Authorization: clientAuthHeader(),
         },
         method: 'POST',
         body: new URLSearchParams({
@@ -47,16 +44,23 @@ export async function exchangeCodeForTokens(
         );
     }
 
-    const { access_token, id_token, expires_in, token_type } = (await response.json()) as {
+    const { access_token, id_token, refresh_token, expires_in, token_type } = (await response.json()) as {
         access_token: string;
         id_token: string;
+        refresh_token?: string;
         scope: string;
         expires_in: number;
         token_type: string;
     };
 
-    // Never log the tokens themselves: they are bearer credentials.
-    console.log(`[token-exchange] tokens received: token_type=${token_type}, expires_in=${expires_in}s`);
+    // Fail at sign-in, not a minute later when the first refresh is needed.
+    // A missing refresh token means offline_access wasn't granted (see the login route).
+    if (!refresh_token) {
+        throw new Error('Token response has no refresh_token: offline_access was not granted');
+    }
 
-    return { access_token, id_token, expires_in, token_type };
+    // Never log the tokens themselves: they are bearer credentials.
+    console.log(`[token-exchange] tokens received: token_type=${token_type}, expires_in=${expires_in}s, refresh_token=yes`);
+
+    return { access_token, id_token, refresh_token, expires_in, token_type };
 }

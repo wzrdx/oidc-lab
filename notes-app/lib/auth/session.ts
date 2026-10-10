@@ -17,6 +17,9 @@ export interface Session {
     idToken: string;
     accessToken: string;
     accessTokenExpiresAt: number; // epoch ms, absolute
+    // Long-lived (days) and rotated on every refresh: the most valuable credential here.
+    // Stays in this store only: never in a cookie, a prop, or a log.
+    refreshToken: string;
 }
 
 const g = globalThis as typeof globalThis & {
@@ -30,11 +33,13 @@ export function createSession({
     idToken,
     accessToken,
     expiresIn,
+    refreshToken,
 }: {
     sub: string;
     idToken: string;
     accessToken: string;
     expiresIn: number; // seconds, as in the token response's expires_in
+    refreshToken: string;
 }): string {
     const session: Session = {
         createdAt: Date.now(),
@@ -42,6 +47,7 @@ export function createSession({
         idToken,
         accessToken,
         accessTokenExpiresAt: Date.now() + expiresIn * 1000,
+        refreshToken,
     };
 
     const sessionId = randomToken();
@@ -66,6 +72,26 @@ export async function getSession(): Promise<Session | undefined> {
     }
 
     return store.get(sessionId);
+}
+
+// Saves the result of a refresh: a new access token and the rotated refresh token.
+// This is why sessions live server-side: a refresh can happen while a server component renders,
+// and server components can't set cookies. The cookie keeps the same session ID; only the store changes.
+// Returns false if the session is gone (e.g. the user logged out while the refresh was running):
+// a logged-out session must not come back to life.
+export function updateSessionTokens(
+    sessionId: string,
+    { accessToken, expiresIn, refreshToken }: { accessToken: string; expiresIn: number; refreshToken: string },
+): boolean {
+    const session = store.get(sessionId);
+    if (!session) {
+        return false;
+    }
+
+    session.accessToken = accessToken;
+    session.accessTokenExpiresAt = Date.now() + expiresIn * 1000;
+    session.refreshToken = refreshToken;
+    return true;
 }
 
 export function deleteSession(sessionId: string): void {

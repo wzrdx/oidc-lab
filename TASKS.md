@@ -97,7 +97,7 @@ Continuing from task 3:
 
 ---
 
-## 5. [ ] Request `offline_access` at sign-in
+## 5. [✅] Request `offline_access` at sign-in
 
 In `app/auth/login/route.ts`, the `scope` becomes `openid offline_access notes:read notes:write`, and add `prompt: 'consent'` (task 3 explains why). The trade-off: the consent screen now appears on every sign-in, even when the IdP session would otherwise skip it.
 
@@ -111,12 +111,12 @@ Check: sign in again. The consent screen mentions offline access, and the `[toke
 
 ---
 
-## 6. [ ] Store the refresh token in the session
+## 6. [✅] Store the refresh token in the session
 
 In `lib/auth/session.ts`:
 
 - Add `refreshToken: string` to `Session`, and pass it through `createSession`. The callback route stores what the token exchange returned.
-- Add `updateSessionTokens(sessionId, { accessToken, accessTokenExpiresAt, refreshToken })`, which replaces the token fields of an existing session and does nothing if the session no longer exists (for example, the user logged out during a refresh).
+- Add `updateSessionTokens(sessionId, { accessToken, expiresIn, refreshToken })` (`expiresIn` in seconds, as in the token response, like `createSession`), which replaces the token fields of an existing session and does nothing if the session no longer exists (for example, the user logged out during a refresh).
 
 This is where the "server-side session store" design decision pays off: a refresh can happen while a server component renders, and server components can't set cookies. Because the cookie holds only the session ID, the rotated tokens just go into the store.
 
@@ -126,7 +126,7 @@ This is where the "server-side session store" design decision pays off: a refres
 
 ---
 
-## 7. [ ] Extract the client authentication header
+## 7. [✅] Extract the client authentication header
 
 The token exchange builds `Authorization: Basic base64(urlencode(client_id):urlencode(client_secret))`. The refresh request (task 8) and token revocation (task 11) need the same header. Move it into a small helper, for example `clientAuthHeader()` in `lib/auth/client-auth.ts` (server-only), and use it in `token-exchange.ts`.
 
