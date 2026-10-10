@@ -199,7 +199,7 @@ This is a **local** logout: the IdP session from phase 1 stays, so the next sign
 
 ---
 
-## 13. [ ] Show the signed-in state on the home page
+## 13. [✅] Show the signed-in state on the home page
 
 Replace the scaffolded `app/page.tsx` with a server component that calls `getSession()` (task 7):
 
@@ -214,7 +214,7 @@ Pass only `sub` (or other display data) to anything rendered. Never pass a token
 
 ---
 
-## 14. [ ] Test the full flow by hand
+## 14. [✅] Test the full flow by hand
 
 Run the IdP and `notes-app` together and check, in the Windows browser at `http://app.localhost:3000`:
 

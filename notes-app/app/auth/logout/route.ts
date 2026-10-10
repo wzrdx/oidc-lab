@@ -1,13 +1,10 @@
 import { oidcConfig } from '@/lib/auth/config';
-import { deleteSession, getSession, SESSION_COOKIE, sessionCookieOptions } from '@/lib/auth/session';
+import { deleteSession, SESSION_COOKIE, sessionCookieOptions } from '@/lib/auth/session';
 import { NextRequest, NextResponse } from 'next/server';
 
+// Idempotent: with no session (already logged out, or the store was emptied by a restart)
+// the user still ends up logged out, so clear the cookie and redirect either way.
 export async function POST(request: NextRequest): Promise<NextResponse> {
-    const session = await getSession();
-    if (!session) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
     const sessionId = request.cookies.get(SESSION_COOKIE)?.value;
     if (sessionId) {
         deleteSession(sessionId);
