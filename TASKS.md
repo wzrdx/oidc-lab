@@ -166,7 +166,7 @@ Create `lib/auth/id-token.ts` (server-only), step 5 of the target flow and phase
 
 ---
 
-## 11. [ ] Implement `GET /auth/callback`
+## 11. [✅] Implement `GET /auth/callback`
 
 Create `app/auth/callback/route.ts`, steps 4 and 5 of the target flow:
 
@@ -185,7 +185,7 @@ Every rejection ends the flow with an error response and **no session**. Log the
 
 ---
 
-## 12. [ ] Implement `POST /auth/logout`
+## 12. [✅] Implement `POST /auth/logout`
 
 Create `app/auth/logout/route.ts` that reads the session cookie, deletes the session from the store (task 7), clears the cookie, and redirects to `/`.
 
