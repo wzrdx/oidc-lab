@@ -16,7 +16,7 @@ export interface Session {
     sub: string;
     idToken: string;
     accessToken: string;
-    expiresIn: number;
+    accessTokenExpiresAt: number; // epoch ms, absolute
 }
 
 const g = globalThis as typeof globalThis & {
@@ -34,20 +34,18 @@ export function createSession({
     sub: string;
     idToken: string;
     accessToken: string;
-    expiresIn: number;
+    expiresIn: number; // seconds, as in the token response's expires_in
 }): string {
     const session: Session = {
         createdAt: Date.now(),
         sub,
         idToken,
         accessToken,
-        expiresIn: Date.now() + expiresIn * 1000,
+        accessTokenExpiresAt: Date.now() + expiresIn * 1000,
     };
 
     const sessionId = randomToken();
     store.set(sessionId, session);
-
-    console.log('createSession', sessionId);
 
     return sessionId;
 }
