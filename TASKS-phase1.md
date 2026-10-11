@@ -90,7 +90,7 @@ Fetch `http://idp.localhost:4000/.well-known/openid-configuration` and work out 
 
 Fetch the `jwks_uri` from task 5. For each key, identify `kty`, `alg`/`crv`, `use`, and `kid`. Confirm the set holds only public material (no `d`, `p`, or `q` members).
 
-Remember that this is `oidc-provider`'s built-in development key. Its private half is published, so anyone could sign tokens that this JWKS accepts. Proper key handling comes in phase 7.
+Remember that this is `oidc-provider`'s built-in development key. Its private half is published, so anyone could sign tokens that this JWKS accepts.
 
 **Files affected:** none.
 

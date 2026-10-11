@@ -2,7 +2,7 @@
 
 The identity provider for oidc-lab. It is an Express server that mounts [`oidc-provider`](https://github.com/panva/node-oidc-provider) and runs at `http://idp.localhost:4000`.
 
-It is the only party that knows who the user is. It shows the login and consent screens, issues authorization codes and tokens (`id_token`, access token, and later refresh tokens), and publishes its public signing keys at the JWKS endpoint so other apps can verify those tokens. Client apps such as `notes-app` never see the user's password; they redirect the browser here and get tokens back.
+It is the only party that knows who the user is. It shows the login and consent screens, issues authorization codes and tokens (`id_token`, access token, and refresh token), and publishes its public signing keys at the JWKS endpoint so other apps can verify those tokens. Client apps such as `notes-app` never see the user's password; they redirect the browser here and get tokens back.
 
 ## Running
 

@@ -93,7 +93,7 @@ Create `lib/auth/login-transactions.ts` (server-only), following the "Login tran
 - `takeLoginTransaction(id)`: returns the record **and deletes it** in the same step (single use, step 4 of the target flow). Returns nothing if the ID is unknown or the record has expired.
 - The cookie that carries the ID: a name constant (for example `login_tx`), and attributes `httpOnly`, `sameSite: "lax"`, `path: "/auth"`, a `maxAge` matching the expiry, and no `secure` (plain HTTP in the lab). `lax` is required: the browser sends the cookie on the top-level redirect back from the IdP, which `strict` would drop.
 
-Expired records that are never taken stay in the `Map`. That's acceptable for a dev `Map`; Redis expiry handles it in phase 5.
+Expired records that are never taken stay in the `Map`. That's acceptable for a dev `Map`.
 
 **Files affected:** `notes-app/lib/auth/login-transactions.ts` (new).
 
@@ -191,7 +191,7 @@ Create `app/auth/logout/route.ts` that reads the session cookie, deletes the ses
 
 Use `POST`, not `GET`. A `GET` logout can be triggered by any link or image on another site, and Next.js prefetches links, which could log the user out just by rendering a link to it.
 
-This is a **local** logout: the IdP session from phase 1 stays, so the next sign-in skips the password prompt. Ending the IdP session too is RP-initiated logout, planned for phase 6.
+This is a **local** logout: the IdP session from phase 1 stays, so the next sign-in skips the password prompt. Ending the IdP session too would be RP-initiated logout.
 
 **Files affected:** `notes-app/app/auth/logout/route.ts` (new).
 

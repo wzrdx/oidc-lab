@@ -12,9 +12,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         const session = getSessionById(sessionId);
 
         if (session) {
-            const discoveryDocument: DiscoveryDocument = await getDiscoveryDocument();
-
             try {
+                const discoveryDocument: DiscoveryDocument = await getDiscoveryDocument();
+
                 const response = await fetch(discoveryDocument.revocation_endpoint, {
                     method: 'POST',
                     headers: {
@@ -31,9 +31,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
                         `[logout] revocation failed: HTTP ${response.status}`,
                         await response.json().catch(() => ({})),
                     );
+                } else {
+                    console.log('[logout] revoked refresh token successfully');
                 }
-
-                console.log('[logout] revoked refresh token successfully');
             } catch (error) {
                 console.log(`Failed to revoke refresh token: ${error}`);
             }

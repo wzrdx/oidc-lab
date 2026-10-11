@@ -202,7 +202,7 @@ Check: log out, then try the refresh token you just revoked with `curl` (copy it
 
 ---
 
-## 12. [ ] Test the full flow by hand
+## 12. [✅] Test the full flow by hand
 
 In the Windows browser at `http://app.localhost:3000`:
 
@@ -219,7 +219,7 @@ In the Windows browser at `http://app.localhost:3000`:
 
 ---
 
-## 13. [ ] Show why single-flight matters
+## 13. [✅] Show why single-flight matters
 
 1. Temporarily make the home page call `listNotes()` three times in parallel (`Promise.all`).
 2. Sign in, wait for the access token to expire, and reload. The log shows **one** refresh, and the page works.
@@ -232,11 +232,11 @@ In the Windows browser at `http://app.localhost:3000`:
 
 ---
 
-## 14. [ ] Mark phase 4 complete
+## 14. [✅] Mark phase 4 complete
 
 Once tasks 1 to 13 pass:
 
-- `CLAUDE.md`: tick the phase 4 checkbox and change "Current phase" to show that the mandatory phases are complete (phase 5 is optional). Add a gotcha: `offline_access` is silently dropped unless the authorize request has `prompt=consent`.
+- `CLAUDE.md`: tick the phase 4 checkbox and change "Current phase" to show that the mandatory phases are complete. Add a gotcha: `offline_access` is silently dropped unless the authorize request has `prompt=consent`.
 - `README.md`: tick roadmap item 4.
 - `notes-app/README.md`: describe the refresh, single-flight, the retry on `401`, and revocation on logout.
 
