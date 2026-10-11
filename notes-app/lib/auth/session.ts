@@ -62,15 +62,19 @@ export async function getCurrentUser(): Promise<{ sub: string } | undefined> {
     return session ? { sub: session.sub } : undefined;
 }
 
+// The ID from this request's session cookie. It's a bearer credential: never log it or pass it to a component.
+export async function getCurrentSessionId(): Promise<string | undefined> {
+    return (await cookies()).get(SESSION_COOKIE)?.value;
+}
+
 // For server code that needs tokens.
 export async function getSession(): Promise<Session | undefined> {
-    const c = await cookies();
-    const sessionId = c.get(SESSION_COOKIE)?.value;
+    const sessionId = await getCurrentSessionId();
+    return sessionId ? store.get(sessionId) : undefined;
+}
 
-    if (!sessionId) {
-        return undefined;
-    }
-
+// Same, for code that already has the ID (the refresh, which may outlive the request that started it).
+export function getSessionById(sessionId: string): Session | undefined {
     return store.get(sessionId);
 }
 
@@ -101,7 +105,7 @@ export function deleteSession(sessionId: string): void {
 // Ends the session the current request belongs to. Server components can't clear cookies,
 // so the cookie stays behind, pointing at nothing: getSession() then returns undefined.
 export async function deleteCurrentSession(): Promise<void> {
-    const sessionId = (await cookies()).get(SESSION_COOKIE)?.value;
+    const sessionId = await getCurrentSessionId();
     if (sessionId) {
         deleteSession(sessionId);
     }

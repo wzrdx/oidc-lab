@@ -152,7 +152,7 @@ The response also contains a new `id_token`. You can ignore it: the session keep
 
 ---
 
-## 9. [ ] Refresh with at most one request in flight per session
+## 9. [✅] Refresh with at most one request in flight per session
 
 Create a function like `getFreshAccessToken(sessionId, { force })` that returns an access token that's valid for at least the next 10 seconds:
 
