@@ -4,11 +4,12 @@ import { oidcConfig } from './config';
 export type DiscoveryDocument = {
     issuer: string;
     authorization_endpoint: string;
+    revocation_endpoint: string;
     token_endpoint: string;
     jwks_uri: string;
 };
 
-const REQUIRED_FIELDS = ['issuer', 'authorization_endpoint', 'token_endpoint', 'jwks_uri'] as const;
+const REQUIRED_FIELDS = ['issuer', 'authorization_endpoint', 'revocation_endpoint', 'token_endpoint', 'jwks_uri'] as const;
 
 // Cache the promise, not the result, so concurrent first calls share one fetch.
 let cached: Promise<DiscoveryDocument> | undefined;

@@ -186,7 +186,7 @@ Update `lib/notes-api.ts`:
 
 ---
 
-## 11. [ ] Revoke the refresh token on logout
+## 11. [✅] Revoke the refresh token on logout
 
 A local logout deletes the session, but the refresh token stays valid at the IdP for up to 14 days. Only `notes-app`'s server ever held it, so the risk is small, but a logout should end it:
 

@@ -66,6 +66,7 @@ const configuration: Configuration = {
     features: {
         // Enabled by default in oidc-provider 9, but getResourceServerInfo throws until it's provided.
         resourceIndicators: { enabled: true, getResourceServerInfo },
+        revocation: { enabled: true },
     },
     rotateRefreshToken: true, // refresh tokens are rotated on every use
 };
