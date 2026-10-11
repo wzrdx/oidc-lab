@@ -172,7 +172,7 @@ The `Map` only coordinates requests inside one Node process. With several `notes
 
 ---
 
-## 10. [ ] Use refreshed tokens in the API client
+## 10. [✅] Use refreshed tokens in the API client
 
 Update `lib/notes-api.ts`:
 

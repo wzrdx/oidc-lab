@@ -3,7 +3,7 @@ import NotesList from '@/components/notes-list';
 import { getCurrentUser } from '@/lib/auth/session';
 import { listNotes, type Note, SignedOutError } from '@/lib/notes-api';
 
-// Loads the notes before anything renders. listNotes() deletes an expired session,
+// Loads the notes before anything renders. listNotes() deletes a session whose refresh was rejected,
 // and Identity has to see that, or it would still show "Signed in as ...".
 async function loadNotes(): Promise<Note[] | 'signed-out'> {
     try {
