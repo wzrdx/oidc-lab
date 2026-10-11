@@ -136,7 +136,7 @@ The token exchange builds `Authorization: Basic base64(urlencode(client_id):urle
 
 ---
 
-## 8. [ ] Write the refresh request
+## 8. [✅] Write the refresh request
 
 Create `lib/auth/refresh.ts` (server-only) with a function that takes a refresh token and calls `token_endpoint`:
 
